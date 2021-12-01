@@ -1,0 +1,100 @@
+---
+title: "Penguins"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Penguin Behavioral Study
+
+This markdown document is a summary of the penguin behavioral study that I took on earlier this semester. I observed an African penguin enclosure via live-stream (Georgia Aquarium) for four days. Data collection occurred for thirty minutes in the midday and thirty minutes in the afternoon each day. The behaviors noted were: autopreening, allopreening, courtship/mating, and aggression. This study investigated the hypothesis that more allopreening behavior would lead to less aggressive behavior among the group of penguins.
+
+```{r, include=FALSE}
+library(tidyr)
+ethogram <- tibble(
+  Behavior = c("Autopreening","Allopreening","Mating/Courtship","Aggression"),
+  Description = c("The penguin is self-preening by licking and/or picking at their own feathers and skin.","The penguin is licking and/or picking at the feathers and skin of another penguin to help clean or to engage in social connections.","The penguins are braying (loud donkey-like mating call) and flapping flippers in unison; animals are attempting to mount another or be mounted onto.","The penguin is biting and/or lunging at others."))
+
+library(tidyverse)
+library(scales)
+penguin_data <- read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTwTduMVB35b9VgiWIs-YxU4TVK1ly5fSVYRRB-S2Hmxne_ywoJ6QuWdSj0rC18vZjICDzwIdxWcBLb/pub?gid=1212530980&single=true&output=csv")
+
+
+penguin_data <- penguin_data %>% 
+  select(-Courtship_Mating) %>% 
+  select(-num_start) %>% 
+  select(-num_end) %>% 
+  pivot_longer(cols = AutoPreening:Aggression, names_to = "Behavior", values_to = "Number") %>% 
+  mutate(Behavior = recode(Behavior,"AutoPreening"="Autopreening",
+                  "AlloPreening"="Allopreening",
+                  "HeadNeck"="Allopreening of the head and neck",
+                  "OtherParts"="Other allopreening")) 
+
+
+penguin_summary <- penguin_data %>% 
+  mutate(rate = Number/avg_num) %>%
+  group_by(Behavior, Time) %>% 
+  summarize(mean=mean(rate),
+            sd=sd(rate), n()) 
+  
+penguin_summary <- 
+penguin_summary %>% mutate(sem = sd/(sqrt(n())))
+
+penguin_summary<-penguin_summary %>% 
+mutate(Behavior = recode(Behavior,"AutoPreening"="Autopreening",
+                  "AlloPreening"="Allopreening",
+                  "HeadNeck"="Allopreening of the head and neck",
+                  "OtherParts"="Other allopreening"))
+
+penguin_summary_2 <-
+  penguin_summary %>% 
+  filter(Behavior=="Autopreening"|Behavior=="Allopreening"|Behavior=="Aggression")
+
+level_order <- c('Autopreening','Allopreening','Allopreening of the head and neck','Other allopreening','Aggression')
+level_order_2 <- c('Midday', 'Afternoon')
+
+behavior_summary <- ggplot(penguin_summary_2, 
+    aes(x = factor(Time,level=level_order_2), y = mean, fill=factor(Behavior,level=level_order))) +
+    geom_col(color="white", position = "fill") +
+    scale_y_continuous(labels = percent) +
+    scale_fill_manual(values=c("#1f78b4","#b2df8a","#fb9a99"))+
+  labs(x="Time",y="Percentage of Observed Behaviors",fill=NULL)+
+  theme(legend.position = "bottom")
+
+allo_agg <- penguin_summary %>% 
+  filter(Behavior=="Other allopreening"|Behavior=="Aggression")
+
+allo_agg_plot <- ggplot(
+  data = allo_agg,
+  aes(x=factor(Time,level=level_order_2),y=mean,fill=factor(Behavior,level=level_order))
+)+
+  geom_col(stat="identity", position= position_dodge2(), width=0.5) + 
+  geom_errorbar(aes(ymin=mean-sem, ymax=mean+sem), 
+                width=0.1, size=.5, position =position_dodge(0.5))+
+  labs(x="Behavior", y= "Observed Behaviors/Penguin/30min", fill = NULL)+
+  scale_fill_manual(values=c("#1f78b4","#b2df8a"))+
+   theme(legend.position = "bottom")
+
+```
+
+## Ethogram
+
+Description of penguin behaviors observed:
+
+```{r, echo= FALSE}
+library(knitr)
+kable(ethogram)
+```
+
+## Results
+
+These plots show some of the results from the study. Mating/Courtship was removed because the amount of observations were negligible. Plot 2 supports the hypothesis because when there was a greater allopreening rate in the afternoon, there was less aggression when compared to the midday observations.
+
+```{r, echo=FALSE}
+plot(behavior_summary)
+plot(allo_agg_plot)
+```
+
+
